@@ -10,7 +10,7 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
     
-    cors.init_app(app, resources={r"/api/*": {"origins": "*"}})
+    cors.init_app(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
     cache.init_app(app, config={'CACHE_TYPE': 'SimpleCache'})
     
     from app.api.v1.movies import movies_bp

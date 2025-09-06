@@ -114,20 +114,45 @@ def get_movie_details(movie_id):
     
     return combined_details, None
 
+# In app/tmdb_client.py
+from thefuzz import process as fuzzy_process
+
+#... keep other functions ...
+
 def search_movies(query, page=1):
     """
-    Searches for movies using the TMDB API.
-    The fuzzy matching has been removed to ensure reliability.
+    Searches for movies and uses fuzzy matching to improve results.
     """
     search_data, error = _make_tmdb_request("search/movie", params={"query": query, "page": page})
     if error:
         return None, error
 
     if not search_data or 'results' not in search_data or not search_data['results']:
-        return {"results": [], "total_pages": 0, "total_results": 0}, None
+        return {"results": [], "page": 1, "total_pages": 0, "total_results": 0}, None
 
+    # If it's an exact match or the first page, trust TMDB's ranking.
+    # Fuzzy matching is most helpful for misspelled single-word queries.
+    if " " not in query and page == 1:
+        titles = [movie.get('title', '') for movie in search_data['results']]
+        # Find the single best match for the misspelled query
+        best_match = fuzzy_process.extractOne(query, titles)
+
+        # If the best match has a good score (e.g., > 60), filter for it.
+        if best_match and best_match[1] > 60:
+            matched_title = best_match[0]
+            filtered_results = [movie for movie in search_data['results'] if movie.get('title') == matched_title]
+            processed_results = _process_movie_list({'results': filtered_results})
+
+            return {
+                "results": processed_results,
+                "page": 1,
+                "total_pages": 1,
+                "total_results": len(processed_results)
+            }, None
+
+    # For all other cases, return the processed TMDB results directly.
     processed_results = _process_movie_list(search_data)
-    
+
     return {
         "results": processed_results,
         "page": search_data.get('page'),
